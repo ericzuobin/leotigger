@@ -1,6 +1,6 @@
 package net.zuobin.leotigger.mapreduce;
 
-import net.zuobin.leotigger.common.define.LotteryConstant;
+import net.zuobin.leotigger.common.define.PlanLotteryConstant;
 import net.zuobin.leotigger.common.lottery.LotteryType;
 import net.zuobin.leotigger.common.lottery.PlayType;
 import org.apache.hadoop.conf.Configuration;
@@ -36,28 +36,34 @@ public class PlanCount {
         public void map(Object key, Text value, Context context) throws IOException,
                 InterruptedException {
 
-            String text = value.toString();
-            if (!(text.contains("%")&&text.contains("!"))) {
-                return;
-            }
-
-            String playTypeStr = text.trim().split(":")[0];
-            LotteryType lotteryType = PlayType.getItem(Integer.parseInt(playTypeStr)).getLotteryType();
-
-            String content = text.substring(text.indexOf("%")+1,text.indexOf("!"));
-            String[] contentArray= content.split(",");
-            String raceId = "";
-            for (String s : contentArray) {
-                raceId = s.substring(0,s.indexOf("("));
-                String betContent = s.substring(s.indexOf("(") + 1,s.length() - 1);
-                String[] betContentArray = betContent.split(";");
-                for (String bet : betContentArray) {
-                    String betCont = LotteryConstant.getLotteryBetContent(lotteryType,bet);
-                    word.set(raceId + "(" + betCont + ")");//切下的单词存入word
-                    context.write(word, one);
+            try {
+                String text = value.toString();
+                if (!(text.contains("%")&&(text.contains("!") || text.contains("@") ))) {
+                    return;
                 }
 
+                String playTypeStr = text.trim().split(":")[0];
+                LotteryType lotteryType = PlayType.getItem(Integer.parseInt(playTypeStr)).getLotteryType();
+
+                int end = text.contains("@") ? text.indexOf("@") :  text.indexOf("!");
+
+                String content = text.substring(text.indexOf("%")+1,end);
+                String[] contentArray= content.split(",");
+                String raceId = "";
+                for (String s : contentArray) {
+                    raceId = s.substring(0,s.indexOf("("));
+                    String betContent = s.substring(s.indexOf("(") + 1,s.length() - 1);
+                    String[] betContentArray = betContent.split(";");
+                    for (String bet : betContentArray) {
+                        String betCont = PlanLotteryConstant.getLotteryBetContent(raceId, lotteryType, bet);
+                        word.set(betCont);//切下的单词存入word
+                        context.write(word, one);
+                    }
+                }
+            }catch (Exception e){
+                e.printStackTrace();
             }
+
         }
     }
 
