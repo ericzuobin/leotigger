@@ -1,5 +1,8 @@
 package net.zuobin.leotigger.mapreduce;
 
+import net.zuobin.leotigger.common.define.LotteryConstant;
+import net.zuobin.leotigger.common.lottery.LotteryType;
+import net.zuobin.leotigger.common.lottery.PlayType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -12,6 +15,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
 import java.io.IOException;
+import java.util.Date;
 
 /**
  * @author Sahinn
@@ -37,6 +41,9 @@ public class PlanCount {
                 return;
             }
 
+            String playTypeStr = text.trim().split(":")[0];
+            LotteryType lotteryType = PlayType.getItem(Integer.parseInt(playTypeStr)).getLotteryType();
+
             String content = text.substring(text.indexOf("%")+1,text.indexOf("!"));
             String[] contentArray= content.split(",");
             String raceId = "";
@@ -45,7 +52,8 @@ public class PlanCount {
                 String betContent = s.substring(s.indexOf("(") + 1,s.length() - 1);
                 String[] betContentArray = betContent.split(";");
                 for (String bet : betContentArray) {
-                    word.set(raceId + "(" + bet + ")");//切下的单词存入word
+                    String betCont = LotteryConstant.getLotteryBetContent(lotteryType,bet);
+                    word.set(raceId + "(" + betCont + ")");//切下的单词存入word
                     context.write(word, one);
                 }
 
@@ -78,12 +86,15 @@ public class PlanCount {
         //检查运行命令
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length!=2){
-            System.err.println("Usage:wordcount<in><out>");
+            System.err.println("Usage:PlanCount<input><output>");
             System.exit(2);
         }
         //配置作业名
-        Job job = new Job(conf, "word count");
+        Job job = Job.getInstance(conf,"PlanCount!");
         //配置作业的各个类
+
+        String outPutPath = otherArgs[1] + "/" + new Date().getTime();
+
         job.setJarByClass(PlanCount.class);
         job.setMapperClass(PlanMapper.class);
         job.setCombinerClass(IntSumReducer.class);
@@ -91,7 +102,7 @@ public class PlanCount {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
         FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-        FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+        FileOutputFormat.setOutputPath(job, new Path(outPutPath));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 
