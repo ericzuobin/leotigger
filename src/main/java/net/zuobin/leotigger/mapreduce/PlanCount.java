@@ -13,9 +13,12 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.hadoop.util.StringUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author Sahinn
@@ -38,14 +41,47 @@ public class PlanCount {
 
             try {
                 String text = value.toString();
-                if (!(text.contains("%")&&(text.contains("!") || text.contains("@") ))) {
-                    return;
+
+                List<String> stringList = parseContent(text);
+
+                for (String s : stringList) {
+                    word.set(s);//切下的单词存入word
+                    context.write(word, one);
                 }
 
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+        }
+
+        private List<String> parseContent(String textSource){
+
+            List<String> stringList = new ArrayList<>();
+
+            String[] planContents = StringUtils.split(textSource,"^".charAt(0));
+
+            for (String planContent : planContents) {
+
+                String text = planContent;
+
+                if (!(text.contains("%")&&(text.contains("!") || text.contains("@") || text.contains("_")))) {
+                    continue;
+                }
                 String playTypeStr = text.trim().split(":")[0];
                 LotteryType lotteryType = PlayType.getItem(Integer.parseInt(playTypeStr)).getLotteryType();
 
-                int end = text.contains("@") ? text.indexOf("@") :  text.indexOf("!");
+                int end;
+                if (text.contains("@")) {
+                    end = text.indexOf("@") ;
+                }else {
+                    if (text.contains("_")) {
+                        end = text.indexOf("_");
+                    }else {
+                        end = text.indexOf("!");
+                    }
+                }
+
 
                 String content = text.substring(text.indexOf("%")+1,end);
                 String[] contentArray= content.split(",");
@@ -56,15 +92,13 @@ public class PlanCount {
                     String[] betContentArray = betContent.split(";");
                     for (String bet : betContentArray) {
                         String betCont = PlanLotteryConstant.getLotteryBetContent(raceId, lotteryType, bet);
-                        word.set(betCont);//切下的单词存入word
-                        context.write(word, one);
+                        stringList.add(betCont);
                     }
                 }
-            }catch (Exception e){
-                e.printStackTrace();
             }
-
+            return stringList;
         }
+
     }
 
     //继承Reducer接口,设置Reduce的输入类型为<Text, IntWritable>
