@@ -250,7 +250,11 @@ public class PlanLotteryConstant {
                 lottery = tempLottery.getName();
             }
         }else {
-            lottery = lotteryType.getName();
+            if (lotteryType.getValue() == LotteryType.JCZQ_BQC.getValue() || lotteryType.getValue() == LotteryType.JCZQ_BF.getValue()) {
+                lottery = LotteryType.JCZQ_SPF_WRQ.getName();
+            }else {
+                lottery = lotteryType.getName();
+            }
         }
         String betElement =PlanLotteryConstant.getLotteryConstantName(lotteryType,key);
         return "[" + lottery + "]" + "(" + match +  ")" + "(" + betElement + ")";

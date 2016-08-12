@@ -2,8 +2,6 @@ package net.zuobin.leotigger.mapreduce;
 
 import net.zuobin.leotigger.common.define.PlanLotteryConstant;
 import net.zuobin.leotigger.common.lottery.LotteryType;
-import net.zuobin.leotigger.common.lottery.PlayType;
-import net.zuobin.leotigger.common.utils.CoreStringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -26,11 +24,11 @@ import java.util.List;
  * @date 16/5/13
  * 统计Word数
  */
-public class PlanCount {
+public class TicketCount {
 
     //继承Mapper接口,设置map的输入类型为<Object, Text>
     //输出类型为<Text, IntWritable>
-    public static class PlanMapper
+    public static class TicketMapper
             extends Mapper<Object, Text, Text, IntWritable> {
         //one表示单词出现一次
         private final static IntWritable one = new IntWritable(1);
@@ -42,11 +40,6 @@ public class PlanCount {
 
             try {
                 String text = value.toString();
-
-                if (text.contains("\"")) {
-                    text = CoreStringUtils.substringBetween(text,"\"","\"");
-                }
-
 
                 List<String> stringList = parseContent(text);
 
@@ -65,41 +58,25 @@ public class PlanCount {
 
             List<String> stringList = new ArrayList<>();
 
-            String[] planContents = StringUtils.split(textSource,"^".charAt(0));
+            String[] planContents = StringUtils.split(textSource,"&".charAt(0));
 
-            for (String planContent : planContents) {
+            if (planContents.length != 2) {
+                return stringList;
+            }
 
-                String text = planContent;
+            String lotteryTypeStr = planContents[0];
+            LotteryType lotteryType = LotteryType.getItem(Integer.parseInt(lotteryTypeStr));
 
-                if (!(text.contains("%")&&(text.contains("!") || text.contains("@") || text.contains("_")))) {
-                    continue;
-                }
-                String playTypeStr = text.trim().split(":")[0];
-                LotteryType lotteryType = PlayType.getItem(Integer.parseInt(playTypeStr)).getLotteryType();
-
-                int end;
-                if (text.contains("@")) {
-                    end = text.indexOf("@") ;
-                }else {
-                    if (text.contains("_")) {
-                        end = text.indexOf("_");
-                    }else {
-                        end = text.indexOf("!");
-                    }
-                }
-
-
-                String content = text.substring(text.indexOf("%")+1,end);
-                String[] contentArray= content.split(",");
-                String raceId = "";
-                for (String s : contentArray) {
-                    raceId = s.substring(0,s.indexOf("("));
-                    String betContent = s.substring(s.indexOf("(") + 1,s.length() - 1);
-                    String[] betContentArray = betContent.split(";");
-                    for (String bet : betContentArray) {
-                        String betCont = PlanLotteryConstant.getLotteryBetContent(raceId, lotteryType, bet);
-                        stringList.add(betCont);
-                    }
+            String content = planContents[1];
+            String[] contentArray= content.split(",");
+            String raceId = "";
+            for (String s : contentArray) {
+                raceId = s.substring(0,s.indexOf("("));
+                String betContent = s.substring(s.indexOf("(") + 1,s.length() - 1);
+                String[] betContentArray = betContent.split(";");
+                for (String bet : betContentArray) {
+                    String betCont = PlanLotteryConstant.getLotteryBetContent(raceId, lotteryType, bet);
+                    stringList.add(betCont);
                 }
             }
             return stringList;
@@ -132,17 +109,17 @@ public class PlanCount {
         //检查运行命令
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length!=2){
-            System.err.println("Usage:PlanCount<input><output>");
+            System.err.println("Usage:TicketCount<input><output>");
             System.exit(2);
         }
         //配置作业名
-        Job job = Job.getInstance(conf,"PlanCount!");
+        Job job = Job.getInstance(conf,"TicketCount!");
         //配置作业的各个类
 
         String outPutPath = otherArgs[1] + "/" + new Date().getTime();
 
-        job.setJarByClass(PlanCount.class);
-        job.setMapperClass(PlanMapper.class);
+        job.setJarByClass(TicketCount.class);
+        job.setMapperClass(TicketMapper.class);
         job.setCombinerClass(IntSumReducer.class);
         job.setReducerClass(IntSumReducer.class);
         job.setOutputKeyClass(Text.class);
